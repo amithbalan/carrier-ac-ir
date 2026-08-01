@@ -132,6 +132,18 @@ def build_bytes(
     return [*prefix, checksum(prefix)]
 
 
+# Turbo / swing / flexicool / night ride in a separate "special function" frame
+# with its own static header, carrying a one-byte command id. Captured from the
+# RG56CMI-B0 and checksum-verified 3/3; the checksum rule is the same as above.
+SPECIAL_PREFIX = (0xAD, 0x52, 0xAF, 0x50)
+
+
+def build_special_bytes(command: int) -> list[int]:
+    """Build a six-byte special-function frame for a toggle command id."""
+    prefix = (*SPECIAL_PREFIX, command & 0xFF)
+    return [*prefix, checksum(prefix)]
+
+
 def _emit_frame(timings: list[int], frame: list[int]) -> None:
     """Append one header-delimited frame. Marks positive, spaces negative."""
     timings.append(LEAD_MARK)

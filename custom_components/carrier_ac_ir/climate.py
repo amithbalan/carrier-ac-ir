@@ -37,6 +37,11 @@ from .midea import (
 DEFAULT_TEMPERATURE = 24
 DEFAULT_ACTIVE_MODE = HVACMode.COOL
 
+# Carrier Midea India units are cooling-only — their remotes have no heat button.
+# MODE_NIBBLE still carries the heat encoding for units that do offer it, but it
+# is not exposed here.
+EXPOSED_MODES = ("cool", "dry", "auto", "fan_only")
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -62,7 +67,7 @@ class CarrierAcClimate(ClimateEntity, RestoreEntity):
     _attr_min_temp = MIN_TEMP
     _attr_max_temp = MAX_TEMP
     _attr_fan_modes = list(FAN_BYTE)
-    _attr_hvac_modes = [HVACMode.OFF] + [HVACMode(mode) for mode in MODE_NIBBLE]
+    _attr_hvac_modes = [HVACMode.OFF] + [HVACMode(mode) for mode in EXPOSED_MODES]
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
         | ClimateEntityFeature.FAN_MODE

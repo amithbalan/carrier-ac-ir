@@ -47,11 +47,20 @@ Integration → Carrier AC (IR)** and pick your emitter.
 
 | | |
 |---|---|
-| HVAC modes | `off`, `cool`, `dry`, `auto`, `heat`, `fan_only` |
+| HVAC modes | `off`, `cool`, `dry`, `auto`, `fan_only` |
 | Target temperature | 17–30 °C, 1° steps |
 | Fan modes | `auto`, `low`, `medium`, `high` |
+| Swing | `off` / `vertical` (the remote's Swing button) |
+| Preset | `boost` (the remote's Turbo button) |
 | Current temperature | optional, from any temperature sensor you pick |
 | State | restored across Home Assistant restarts |
+
+No `heat`: Carrier Midea India units are cooling-only and their remotes have no
+heat button. `MODE_NIBBLE` still carries the encoding if yours does.
+
+Swing and Turbo are **toggles** on the remote — there is no way to ask the unit
+what it is currently doing, so the integration transmits only when the value
+actually changes and tracks the rest optimistically.
 
 Because IR is one-way, the entity is `assumed_state`: Home Assistant shows what
 it last transmitted, which is not proof the AC acted on it. Selecting a room
@@ -60,12 +69,20 @@ still regulates against its own internal sensor.
 
 ## Protocol
 
-Every transmission carries the complete state (mode, temperature, fan), so any
-single change re-sends everything. The frame is six bytes, sent LSB-first,
+Every state transmission carries the complete state (mode, temperature, fan), so
+any single change re-sends everything. The frame is six bytes, sent LSB-first,
 twice per press:
 
 ```
 [0x4D] [0xB2] [fan] [~fan] [mode << 4 | temp] [checksum]
+```
+
+Toggles cannot ride in that frame — byte 3 is byte 2's complement and byte 5 is
+the checksum, so there is no spare bit. They use two further frame families:
+
+```
+[0x4D] [0xB2] [cmd] [~cmd] [0x07] [checksum]      swing = 0xD6, power off = 0xDE
+[0xAD] [0x52] [0xAF] [0x50] [cmd] [checksum]      turbo = 0x45, flexicool = 0xDD
 ```
 
 * **Checksum** — `(0xFD - sum(bytes 0..4)) & 0xFF`
@@ -83,20 +100,30 @@ RG56CMI-B0 remote and runs in CI. Reproduce or extend the captures with any
 
 ### Verified vs. inferred
 
-**Confirmed on real hardware** — the AC visibly obeyed each of these:
-`cool`, the full temperature range (17 °C and 30 °C at both ends, plus 24 °C
-and 25 °C), and fan `auto`, `low` and `high`. The header, checksum rule,
-`byte3 == ~byte2` and the power-off template are additionally reproduced
-byte-for-byte from recordings of the physical remote.
+**Confirmed on real hardware** — the unit visibly obeyed each of these:
+`cool`, the full temperature range (both extremes, 17 °C and 30 °C, plus 24 °C
+and 25 °C), fan `auto`/`low`/`high`, **swing** and **turbo**. Swing and turbo
+were additionally proved round-trip: recorded off the remote, then transmitted
+back at the unit and seen to work.
 
-**Still inferred**, taken from the published Midea tables and cross-checked
-across [IRremoteESP8266][ir-esp], [esp-midea-ir][esp-midea] and the [RG57
-decode project][rg57] (all three agree): fan `medium`, and the `dry`, `heat`
-and `fan_only` mode nibbles. The `auto` mode nibble and its `0xF8` fan-byte
-override come from a capture but have not been visually confirmed on the unit.
+**Still inferred**, from the published Midea tables cross-checked across
+[IRremoteESP8266][ir-esp], [esp-midea-ir][esp-midea] and the [RG57 decode
+project][rg57] (all three agree): fan `medium`, and the `dry` and `fan_only`
+mode nibbles.
 
-If a mode misbehaves on your unit, capture that button and open an issue with
-the decoded bytes.
+**Deliberately not exposed.** The RG56CMI-B0 is a generic remote with buttons
+the reference unit does not implement:
+
+* **Flexicool** — the remote sends `0xDD`, but the unit has no such function and
+  ignores it. The constant is kept for anyone whose AC does have it.
+* **Night** — has *no* code at all. The button simply re-transmits the current
+  state frame, which the AC acknowledges like any other command. Verified by
+  replaying that exact frame and getting an identical response. Two other
+  special ids seen in captures, `0xBD` and `0x7D`, were transmitted at the unit
+  and did nothing.
+
+If something misbehaves on your unit, capture the button with
+`tools/decode_captures.py` and open an issue with the decoded bytes.
 
 ## Credits
 

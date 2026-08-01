@@ -132,14 +132,35 @@ def build_bytes(
     return [*prefix, checksum(prefix)]
 
 
-# Turbo / swing / flexicool / night ride in a separate "special function" frame
-# with its own static header, carrying a one-byte command id. Captured from the
-# RG56CMI-B0 and checksum-verified 3/3; the checksum rule is the same as above.
+# Toggles do not ride in the state frame at all -- there is no spare bit, since
+# byte3 is byte2's complement and byte5 is the checksum. They use two separate
+# frame families, both captured from the RG56CMI-B0 three times each.
+#
+# Family 1, a state frame with a command in place of the fan byte:
+#   4D B2 <cmd> <~cmd> 07 F8       (power off is this family, cmd 0xDE)
+SWING = 0xD6  # captured, and verified by transmitting it back at the unit
+
+# Family 2, its own static header plus a one-byte command id:
+#   AD 52 AF 50 <cmd> <checksum>
 SPECIAL_PREFIX = (0xAD, 0x52, 0xAF, 0x50)
+TURBO = 0x45  # captured + transmit-verified; matches the published Midea table
+
+# Captured from the remote but NOT exposed: the RG56CMI-B0 is a generic remote
+# with buttons this unit does not implement. Kept for anyone whose AC does.
+FLEXICOOL = 0xDD  # remote sends it; the reference unit has no flexicool function
+# NIGHT has no code at all -- the button emits only an ordinary state frame. The
+# other two special ids seen in captures, 0xBD and 0x7D, were transmitted at the
+# unit and did nothing.
+
+
+def build_command_bytes(command: int) -> list[int]:
+    """Build a family-1 command frame: 4D B2 <cmd> <~cmd> 07 F8."""
+    prefix = (HEADER_A, HEADER_B, command & 0xFF, (~command) & 0xFF, 0x07)
+    return [*prefix, checksum(prefix)]
 
 
 def build_special_bytes(command: int) -> list[int]:
-    """Build a six-byte special-function frame for a toggle command id."""
+    """Build a family-2 special-function frame for a toggle command id."""
     prefix = (*SPECIAL_PREFIX, command & 0xFF)
     return [*prefix, checksum(prefix)]
 

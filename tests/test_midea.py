@@ -79,17 +79,19 @@ def main() -> int:
         print(f"  [{'PASS' if ok else 'FAIL'}] {name:<28} {hexs(got)}"
               + ("" if ok else f"   expected {hexs(expected)}"))
 
-    print("\n== special-function frames vs captured frames ==")
-    # Captured from the RG56CMI-B0's toggle buttons; ids not yet mapped to labels.
-    for cmd, expected in (
-        (0xBD, [0xAD, 0x52, 0xAF, 0x50, 0xBD, 0x42]),
-        (0x7D, [0xAD, 0x52, 0xAF, 0x50, 0x7D, 0x82]),
-        (0xDD, [0xAD, 0x52, 0xAF, 0x50, 0xDD, 0x22]),
+    print("\n== toggle frames vs captured frames ==")
+    # Every one of these was recorded three times from the physical remote.
+    for name, got, expected in (
+        ("swing", midea.build_command_bytes(midea.SWING),
+         [0x4D, 0xB2, 0xD6, 0x29, 0x07, 0xF8]),
+        ("turbo", midea.build_special_bytes(midea.TURBO),
+         [0xAD, 0x52, 0xAF, 0x50, 0x45, 0xBA]),
+        ("flexicool", midea.build_special_bytes(midea.FLEXICOOL),
+         [0xAD, 0x52, 0xAF, 0x50, 0xDD, 0x22]),
     ):
-        got = midea.build_special_bytes(cmd)
         ok = got == expected
         failures += not ok
-        print(f"  [{'PASS' if ok else 'FAIL'}] command 0x{cmd:02X}                    {hexs(got)}"
+        print(f"  [{'PASS' if ok else 'FAIL'}] {name:<28} {hexs(got)}"
               + ("" if ok else f"   expected {hexs(expected)}"))
 
     print("\n== checksum + complement invariants over the whole matrix ==")

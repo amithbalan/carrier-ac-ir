@@ -8,7 +8,14 @@ from homeassistant.components.climate import (
     ClimateEntityFeature,
     HVACMode,
 )
-from homeassistant.components.climate.const import FAN_AUTO
+from homeassistant.components.climate.const import (
+    ATTR_PRESET_MODE,
+    FAN_AUTO,
+    PRESET_BOOST,
+    PRESET_NONE,
+    SWING_OFF,
+    SWING_VERTICAL,
+)
 from homeassistant.components.infrared import async_send_command
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -29,10 +36,17 @@ from .midea import (
     FAN_BYTE,
     MAX_TEMP,
     MIN_TEMP,
-    MODE_NIBBLE,
+    SWING,
+    TURBO,
     CarrierCommand,
+    build_command_bytes,
+    build_special_bytes,
+    build_timings,
     encode,
 )
+
+SWING_MODES = [SWING_OFF, SWING_VERTICAL]
+PRESET_MODES = [PRESET_NONE, PRESET_BOOST]
 
 DEFAULT_TEMPERATURE = 24
 DEFAULT_ACTIVE_MODE = HVACMode.COOL
@@ -67,10 +81,14 @@ class CarrierAcClimate(ClimateEntity, RestoreEntity):
     _attr_min_temp = MIN_TEMP
     _attr_max_temp = MAX_TEMP
     _attr_fan_modes = list(FAN_BYTE)
+    _attr_swing_modes = SWING_MODES
+    _attr_preset_modes = PRESET_MODES
     _attr_hvac_modes = [HVACMode.OFF] + [HVACMode(mode) for mode in EXPOSED_MODES]
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
         | ClimateEntityFeature.FAN_MODE
+        | ClimateEntityFeature.SWING_MODE
+        | ClimateEntityFeature.PRESET_MODE
         | ClimateEntityFeature.TURN_ON
         | ClimateEntityFeature.TURN_OFF
     )
@@ -90,6 +108,8 @@ class CarrierAcClimate(ClimateEntity, RestoreEntity):
         self._attr_hvac_mode = HVACMode.OFF
         self._attr_target_temperature: float = DEFAULT_TEMPERATURE
         self._attr_fan_mode = FAN_AUTO
+        self._attr_swing_mode = SWING_OFF
+        self._attr_preset_mode = PRESET_NONE
         self._last_active_mode = DEFAULT_ACTIVE_MODE
 
     async def async_added_to_hass(self) -> None:
@@ -117,6 +137,10 @@ class CarrierAcClimate(ClimateEntity, RestoreEntity):
             self._attr_target_temperature = temperature
         if (fan_mode := last_state.attributes.get("fan_mode")) in FAN_BYTE:
             self._attr_fan_mode = fan_mode
+        if (swing_mode := last_state.attributes.get("swing_mode")) in SWING_MODES:
+            self._attr_swing_mode = swing_mode
+        if (preset := last_state.attributes.get(ATTR_PRESET_MODE)) in PRESET_MODES:
+            self._attr_preset_mode = preset
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         self._attr_hvac_mode = hvac_mode
@@ -136,6 +160,20 @@ class CarrierAcClimate(ClimateEntity, RestoreEntity):
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         self._attr_fan_mode = fan_mode
         await self._async_transmit()
+
+    async def async_set_swing_mode(self, swing_mode: str) -> None:
+        """Swing is a toggle, so only transmit when the value actually flips."""
+        if swing_mode == self._attr_swing_mode:
+            return
+        self._attr_swing_mode = swing_mode
+        await self._async_send(build_command_bytes(SWING))
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        """Boost maps to the remote's Turbo button, which is also a toggle."""
+        if preset_mode == self._attr_preset_mode:
+            return
+        self._attr_preset_mode = preset_mode
+        await self._async_send(build_special_bytes(TURBO))
 
     async def async_turn_on(self) -> None:
         await self.async_set_hvac_mode(self._last_active_mode)
@@ -158,6 +196,13 @@ class CarrierAcClimate(ClimateEntity, RestoreEntity):
         self._read_sensor()
         if self._attr_current_temperature != previous:
             self.async_write_ha_state()
+
+    async def _async_send(self, frame: list[int]) -> None:
+        """Transmit one six-byte frame and publish the assumed state."""
+        await async_send_command(
+            self.hass, self._emitter_id, CarrierCommand(build_timings(frame))
+        )
+        self.async_write_ha_state()
 
     async def _async_transmit(self) -> None:
         timings = encode(

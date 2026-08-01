@@ -83,14 +83,17 @@ RG56CMI-B0 remote and runs in CI. Reproduce or extend the captures with any
 
 ### Verified vs. inferred
 
-Captured from the physical remote and reproduced byte-for-byte by the encoder:
-the header, the checksum rule, `byte3 == ~byte2`, the power-off template, fan
-`auto`/`high`, mode nibble `0` (cool) and `2`, and temperatures 24 °C/25 °C.
+**Confirmed on real hardware** — the AC visibly obeyed each of these:
+`cool`, the full temperature range (17 °C and 30 °C at both ends, plus 24 °C
+and 25 °C), and fan `auto`, `low` and `high`. The header, checksum rule,
+`byte3 == ~byte2` and the power-off template are additionally reproduced
+byte-for-byte from recordings of the physical remote.
 
-Taken from the published Midea tables and cross-checked across
-[IRremoteESP8266][ir-esp], [esp-midea-ir][esp-midea] and the [RG57 decode
-project][rg57] (all three agree): the full 14-entry temperature table, fan
-`low`/`medium`, and the `dry`/`heat`/`fan_only` mode nibbles.
+**Still inferred**, taken from the published Midea tables and cross-checked
+across [IRremoteESP8266][ir-esp], [esp-midea-ir][esp-midea] and the [RG57
+decode project][rg57] (all three agree): fan `medium`, and the `dry`, `heat`
+and `fan_only` mode nibbles. The `auto` mode nibble and its `0xF8` fan-byte
+override come from a capture but have not been visually confirmed on the unit.
 
 If a mode misbehaves on your unit, capture that button and open an issue with
 the decoded bytes.

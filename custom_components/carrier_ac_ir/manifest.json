@@ -1,0 +1,13 @@
+{
+  "domain": "carrier_ac_ir",
+  "name": "Carrier AC (IR)",
+  "codeowners": ["@amithbalan"],
+  "config_flow": true,
+  "dependencies": ["infrared"],
+  "documentation": "https://github.com/amithbalan/carrier-ac-ir",
+  "integration_type": "device",
+  "iot_class": "assumed_state",
+  "issue_tracker": "https://github.com/amithbalan/carrier-ac-ir/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

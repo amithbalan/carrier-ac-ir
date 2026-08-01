@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Carrier AC",
+        "description": "Select the IR emitter that transmits to the air conditioner. On an ESPHome IR blaster this is the entity created by the ir_rf_proxy transmitter platform.",
+        "data": {
+          "name": "Name",
+          "emitter": "IR emitter",
+          "temperature_sensor": "Room temperature sensor"
+        },
+        "data_description": {
+          "temperature_sensor": "Optional. Shown as the current temperature. The AC is controlled open-loop either way."
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This IR emitter is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Carrier AC",
+        "data": {
+          "temperature_sensor": "Room temperature sensor"
+        },
+        "data_description": {
+          "temperature_sensor": "Optional. Shown as the current temperature. The AC is controlled open-loop either way."
+        }
+      }
+    }
+  }
+}
